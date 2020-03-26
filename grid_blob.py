@@ -1,15 +1,13 @@
-from utils import Plot, smin
+from plot import Plot, smin
 import math
-
-SQRT_2 = 1.41421356237
 
 p = Plot()
 
 def rotate(x, y):
     x -= 50
     y -= 50
-    dist = smin(math.hypot(x, y)/40, 1, 0.3)
-    angle = (1-dist)*1.4
+    dist = smin(math.hypot(x, y)/40, 1, 0.2)
+    angle = -(1-dist)*0.9
     point = (
         x*math.cos(angle) - y*math.sin(angle),
         x*math.sin(angle) + y*math.cos(angle),
@@ -37,8 +35,8 @@ def main():
             p.lineto(*rotate(x, y))
 
 if __name__ == "__main__":
-    p.plotter_enabled = True
-    p.plot_size = 8
+    p.plotter_enabled = False
+    p.plot_size = 4
     p.setup()
     main()
     p.done()
