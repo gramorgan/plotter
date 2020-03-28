@@ -1,9 +1,9 @@
 import turtle as t
 from pyaxidraw import axidraw
 import math
-import subprocess
-import atexit
 from functools import partial
+
+FLOAT_EPSILON =  0.001
 
 def lerp(a, b, t):
     return a*(1-t) + b*t
@@ -48,20 +48,29 @@ def _line_segment_intersection(p1, p2, p3, p4):
         )
     return None
 
+class dotdict(dict):
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 class Plot():
 
-    def __init__(self):
+    def __init__(self, plotter_enabled=False):
         self.set_canvas_size(100, 100)
 
         self.plot_size = 4
         self.plot_origin = (0, 0)
-        self.plotter_enabled = False
+        self.plotter_enabled = plotter_enabled
 
         self.clipping = True
         self._current_pos = (0, 0)
+        self.cull_empty_at_edges = True
 
         self.ad = None
-        self.options = None
+        self.options = dotdict()
+
+        t.hideturtle()
+        t.tracer(1000, 0)
     
     def set_canvas_size(self, xsize, ysize):
         self.canvas_size = (xsize, ysize)
@@ -69,20 +78,17 @@ class Plot():
         t.setworldcoordinates(0, self._max_canvas_size, self._max_canvas_size, 0)
     
     def setup(self):
-        t.hideturtle()
-        t.tracer(500, 0)
+        t.clear()
 
         if self.plotter_enabled and self.ad is None:
             self.ad = axidraw.AxiDraw()
             self.ad.interactive()
             self.ad.options.const_speed = True
+            for k, v in self.options.items():
+                setattr(self.ad.options, k, v)
             self.ad.connect()
 
             self.options = self.ad.options
-
-            # prevent screen from sleeping
-            self.caff_proc = subprocess.Popen(['caffeinate', '-d'])
-            atexit.register(self.caff_proc.terminate)
     
     def done(self):
         if self.plotter_enabled:
@@ -91,8 +97,6 @@ class Plot():
             self.ad.options.mode = 'align'
             self.ad.plot_run()
             self.ad.disconnect()
-
-            self.caff_proc.terminate()
 
         t.update()
         t.done()
@@ -125,19 +129,26 @@ class Plot():
             )
     
     def lineto(self, x, y):
-        if self.clipping:
-            in_bounds = self.in_bounds(x, y)
-            edge_intersections = self.get_edge_intersections((x, y))
-            if len(edge_intersections) == 0 and in_bounds:
-                self._lineto(x, y)
-            elif len(edge_intersections) == 1 and in_bounds:
-                self._goto(*edge_intersections[0])
-                self._lineto(x, y)
-            elif len(edge_intersections) == 1 and not in_bounds:
-                self._lineto(*edge_intersections[0])
+        old_in_bounds = self.in_bounds(*self._current_pos)
+        new_in_bounds = self.in_bounds(x, y)
+        if self.clipping and old_in_bounds and new_in_bounds:
+            if t.pos() != self._current_pos:
+                self._goto(*self._current_pos)
+            self._lineto(x, y)
+        elif self.clipping:
+            edge_intersections = self.get_edge_intersections(self._current_pos, (x, y))
+            if len(edge_intersections) == 1 and new_in_bounds:
+                if not (self.cull_empty_at_edges and _dist_between((x, y), edge_intersections[0]) < FLOAT_EPSILON):
+                    self._goto(*edge_intersections[0])
+                    self._lineto(x, y)
+            elif len(edge_intersections) == 1 and not new_in_bounds:
+                if not (self.cull_empty_at_edges and _dist_between(self._current_pos, edge_intersections[0]) < FLOAT_EPSILON):
+                    if t.pos() != self._current_pos:
+                        self._goto(*self._current_pos)
+                    self._lineto(*edge_intersections[0])
             elif len(edge_intersections) == 2:
-                close = min(edge_intersections, key=partial(_dist_between, self._current_pos))
-                far   = max(edge_intersections, key=partial(_dist_between, self._current_pos))
+                close = min(edge_intersections, key=partial(_dist_between, t.pos()))
+                far   = max(edge_intersections, key=partial(_dist_between, t.pos()))
                 self._goto(*close)
                 self._lineto(*far)
             elif len(edge_intersections) > 2:
@@ -177,24 +188,24 @@ class Plot():
             and y <= self.canvas_size[1]
         )
     
-    def get_edge_intersections(self, new_pos):
+    def get_edge_intersections(self, old_pos, new_pos):
         edges = [
             ((0, 0), (0, self.canvas_size[1])),
             ((0, self.canvas_size[1]), (self.canvas_size[0], self.canvas_size[1])),
             ((self.canvas_size[0], self.canvas_size[1]), (self.canvas_size[0], 0)),
             ((self.canvas_size[0], 0), (0, 0)),
         ]
-        return list(filter(None, [_line_segment_intersection(self._current_pos, new_pos, e[0], e[1]) for e in edges]))
+        return list(filter(None, [_line_segment_intersection(old_pos, new_pos, e[0], e[1]) for e in edges]))
     
     def pen_change(self):
         self.penup()
         input()
     
-def circle(p : Plot, origin, radius, len_segments_inches=0.02):
-    len_segments = p.inches_to_units(len_segments_inches)
-    num_divisions = round((2*math.pi*radius)/len_segments)
-    p.goto(origin[0]+radius, origin[1])
-    for t in range(1, num_divisions+1):
-        x = origin[0] + radius*math.cos((t/num_divisions)*(2*math.pi))
-        y = origin[1] + radius*math.sin((t/num_divisions)*(2*math.pi))
-        p.lineto(x, y)
+    def circle(self, origin, radius, len_segments_inches=0.02):
+        len_segments = self.inches_to_units(len_segments_inches)
+        num_divisions = round((2*math.pi*radius)/len_segments)
+        self.goto(origin[0]+radius, origin[1])
+        for t in range(1, num_divisions+1):
+            x = origin[0] + radius*math.cos((t/num_divisions)*(2*math.pi))
+            y = origin[1] + radius*math.sin((t/num_divisions)*(2*math.pi))
+            self.lineto(x, y)
