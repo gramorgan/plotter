@@ -4,40 +4,67 @@ import os
 import importlib
 import atexit
 import subprocess
+import traceback
 
 from plot import Plot
 import turtle as t
 
-mtime = None
+class PlotWatcher():
 
-def check_update(filename, module, p: Plot):
-    global mtime
-    new_mtime = os.stat(os.path.abspath(filename)).st_mtime
-    if mtime is None or new_mtime > mtime:
-        mtime = new_mtime
-        importlib.reload(module)
-        module.main(p)
+    def __init__(self, p: Plot, filename):
+        self.filename = filename
+        self.p = p
+        self.module = None
+        self.mtime = None
+        self.drawing = False
+
+    def redraw_plot(self):
+        if self.drawing:
+            return False
+        print('reloading plot')
+        try:
+            if self.module:
+                importlib.reload(self.module)
+            else:
+                module_name = os.path.splitext(self.filename)[0].replace('/', '.')
+                self.module = importlib.import_module(module_name)
+            self.drawing = True
+            self.module.main(self.p)
+            self.drawing = False
+        except:
+            traceback.print_exc()
         t.update()
-    t._Screen._root.after(100, check_update, filename, module, p)
+        return True
+    
+    def _tick(self):
+        new_mtime = os.stat(os.path.abspath(self.filename)).st_mtime
+        if self.mtime is None or new_mtime > self.mtime:
+            if self.redraw_plot():
+                self.mtime = new_mtime
+        t._Screen._root.after(200, self._tick)
+
+    def start(self):
+        t.onscreenclick(lambda _x, _y: self.redraw_plot())
+        self._tick()
 
 def main():
     filename = sys.argv[1]
-    module_name = os.path.splitext(filename)[0]
-    module = importlib.import_module(module_name)
-
     plotter_enabled = len(sys.argv) > 2 and sys.argv[2] == '--plot'
+
     p = Plot(plotter_enabled)
     if plotter_enabled:
+        module_name = os.path.splitext(filename)[0]
+        module = importlib.import_module(module_name)
         # prevent screen from sleeping
         proc = subprocess.Popen(['caffeinate', '-d'])
-        atexit.register(self._caff_proc.terminate)
+        atexit.register(proc.terminate)
 
         module.main(p)
 
         proc.terminate()
         p.done()
     else:
-        check_update(filename, module, p)
+        PlotWatcher(p, filename).start()
         p.done()
 
 if __name__ == "__main__":

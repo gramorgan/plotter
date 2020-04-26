@@ -1,7 +1,6 @@
-from plot import Plot, smin
+from plot import Plot
+from plot.utils import smin
 import math
-
-p = Plot()
 
 def rotate(x, y):
     x -= 50
@@ -17,7 +16,10 @@ def rotate(x, y):
         point[1]+50,
     )
 
-def main():
+def main(p: Plot):
+    p.plot_size = 4
+    p.setup()
+
     num_rows = 100
     num_cols = 100
     for r in range(num_rows+1):
@@ -33,10 +35,3 @@ def main():
         for r in range(num_rows+1):
             y = 1 + r * (98/num_rows)
             p.lineto(*rotate(x, y))
-
-if __name__ == "__main__":
-    p.plotter_enabled = False
-    p.plot_size = 4
-    p.setup()
-    main()
-    p.done()

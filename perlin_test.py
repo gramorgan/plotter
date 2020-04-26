@@ -1,13 +1,16 @@
-from utils import Plot
+from plot import Plot
 import math
 import noise
-
-p = Plot()
 
 def get_noise(x, y):
     return noise.snoise2(x, y, octaves=4, lacunarity=3, persistence=0.4)
 
-def main():
+def main(p: Plot):
+    p.plotter_enabled = False
+    p.plot_size = 6
+    p.setup()
+    p.draw_bounding_box(True)
+
     num_rows = 150
     horiz_increment = 0.02
     num_cols = round(p.plot_size / horiz_increment)
@@ -20,11 +23,3 @@ def main():
             n = get_noise(4*r/num_rows, 4*c/num_cols) * scale
             x = c*(100/num_cols)
             p.lineto(x, y+n)
-
-if __name__ == '__main__':
-    p.plotter_enabled = False
-    p.plot_size = 6
-    p.setup()
-    p.draw_bounding_box(True)
-    main()
-    p.done()
