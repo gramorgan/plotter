@@ -7,27 +7,21 @@ from .utils import vec2
 FLOAT_EPSILON =  0.001
 
 def _dist_between(a, b):
-    x_dist = a[0] - b[0]
-    y_dist = a[1] - b[1]
+    x_dist = a.x - b.x
+    y_dist = a.y - b.y
     return math.sqrt(x_dist*x_dist + y_dist*y_dist)
 
 def _line_segment_intersection(p1, p2, p3, p4):
-    try:
-        ta = (
-            ((p3[1]-p4[1]) * (p1[0]-p3[0]) + (p4[0]-p3[0]) * (p1[1]-p3[1])) /
-            ((p4[0]-p3[0]) * (p1[1]-p2[1]) - (p1[0]-p2[0]) * (p4[1]-p3[1]))
-        )
-        tb = (
-            ((p1[1]-p2[1]) * (p1[0]-p3[0]) + (p2[0]-p1[0]) * (p1[1]-p3[1])) /
-            ((p4[0]-p3[0]) * (p1[1]-p2[1]) - (p1[0]-p2[0]) * (p4[1]-p3[1]))
-        )
-    # denom is 0 when lines are parallel
-    except ZeroDivisionError:
+    d = (p4.x-p3.x) * (p1.y-p2.y) - (p1.x-p2.x) * (p4.y-p3.y)
+    if d == 0:
+        # lines are parallel
         return None
+    ta = ((p3.y-p4.y) * (p1.x-p3.x) + (p4.x-p3.x) * (p1.y-p3.y)) / d
+    tb = ((p1.y-p2.y) * (p1.x-p3.x) + (p2.x-p1.x) * (p1.y-p3.y)) / d
     if ta >= 0 and ta <= 1 and tb >= 0 and tb <= 1:
-        return (
-            p1[0] + ta * (p2[0]-p1[0]),
-            p1[1] + ta * (p2[1]-p1[1])
+        return vec2(
+            p1.x + ta * (p2.x-p1.x),
+            p1.y + ta * (p2.y-p1.y)
         )
     return None
 
@@ -52,6 +46,7 @@ class Plot():
         self.cull_empty_at_edges = True
 
         self._reset_plot_state()
+        self._real_pos = self.DEFAULT_POS
 
         self.ad = None
         self.options = dotdict()
@@ -60,7 +55,7 @@ class Plot():
         t.tracer(1000, 0)
     
     def set_canvas_size(self, xsize, ysize):
-        self.canvas_size = (xsize, ysize)
+        self.canvas_size = vec2(xsize, ysize)
         self._max_canvas_size = max(self.canvas_size)
         t.setworldcoordinates(0, self._max_canvas_size, self._max_canvas_size, 0)
     
@@ -74,7 +69,8 @@ class Plot():
             self.ad.options.const_speed = True
             for k, v in self.options.items():
                 setattr(self.ad.options, k, v)
-            self.ad.connect()
+            if not self.ad.connect():
+                raise RuntimeError('plotter not connected')
 
             self.options = self.ad.options
     
@@ -99,9 +95,9 @@ class Plot():
         if not plot:
             self.plotter_enabled = False
         self.goto(0, 0)
-        self.lineto(self.canvas_size[0], 0)
-        self.lineto(self.canvas_size[0], self.canvas_size[1])
-        self.lineto(0, self.canvas_size[1])
+        self.lineto(self.canvas_size.x, 0)
+        self.lineto(self.canvas_size.x, self.canvas_size.y)
+        self.lineto(0, self.canvas_size.y)
         self.lineto(0, 0)
         self.plotter_enabled = old_plot_enabled
     
@@ -110,11 +106,13 @@ class Plot():
         self._current_penup = True
 
     def _goto(self, x, y):
-        x = max(x, 0)
-        y = max(y, 0)
+        if self.clipping:
+            x = max(x, 0)
+            y = max(y, 0)
 
         t.penup()
         t.goto(x, y)
+        self._real_pos = vec2(x, y)
         if self.plotter_enabled:
             t.update()
             self.ad.moveto(
@@ -128,17 +126,17 @@ class Plot():
         if self.clipping and old_in_bounds and new_in_bounds:
             self._lineto(x, y)
         elif self.clipping:
-            edge_intersections = self.get_edge_intersections(self._current_pos, (x, y))
+            edge_intersections = self.get_edge_intersections(self._current_pos, vec2(x, y))
             if len(edge_intersections) == 1 and new_in_bounds:
-                if not (self.cull_empty_at_edges and _dist_between((x, y), edge_intersections[0]) < FLOAT_EPSILON):
+                if not (self.cull_empty_at_edges and _dist_between(vec2(x, y), edge_intersections[0]) < FLOAT_EPSILON):
                     self.goto(*edge_intersections[0])
                     self._lineto(x, y)
             elif len(edge_intersections) == 1 and not new_in_bounds:
                 if not (self.cull_empty_at_edges and _dist_between(self._current_pos, edge_intersections[0]) < FLOAT_EPSILON):
                     self._lineto(*edge_intersections[0])
             elif len(edge_intersections) == 2:
-                close = min(edge_intersections, key=partial(_dist_between, t.pos()))
-                far   = max(edge_intersections, key=partial(_dist_between, t.pos()))
+                close = min(edge_intersections, key=partial(_dist_between, self._real_pos))
+                far   = max(edge_intersections, key=partial(_dist_between, self._real_pos))
                 self.goto(*close)
                 self._lineto(*far)
             elif len(edge_intersections) > 2:
@@ -149,13 +147,15 @@ class Plot():
         self._current_pos = vec2(x, y)
 
     def _lineto(self, x, y):
-        x = max(x, 0)
-        y = max(y, 0)
+        if self.clipping:
+            x = max(x, 0)
+            y = max(y, 0)
 
-        if t.pos() != self._current_pos:
+        if self._real_pos != self._current_pos:
             self._goto(*self._current_pos)
         t.pendown()
         t.goto(x, y)
+        self._real_pos = vec2(x, y)
         if self.plotter_enabled:
             t.update()
             self.ad.lineto(
@@ -186,17 +186,21 @@ class Plot():
     def in_bounds(self, x, y):
         return (
                 x >= 0
-            and x <= self.canvas_size[0]
+            and x <= self.canvas_size.x
             and y >= 0
-            and y <= self.canvas_size[1]
+            and y <= self.canvas_size.y
         )
     
     def get_edge_intersections(self, old_pos, new_pos):
+        topleft = vec2(0)
+        topright = vec2(self.canvas_size.x, 0)
+        bottomleft = vec2(0, self.canvas_size.y)
+        bottomright = self.canvas_size
         edges = [
-            ((0, 0), (0, self.canvas_size[1])),
-            ((0, self.canvas_size[1]), (self.canvas_size[0], self.canvas_size[1])),
-            ((self.canvas_size[0], self.canvas_size[1]), (self.canvas_size[0], 0)),
-            ((self.canvas_size[0], 0), (0, 0)),
+            (topleft, topright),
+            (topright, bottomright),
+            (bottomright, bottomleft),
+            (bottomleft, topleft),
         ]
         return list(filter(None, [_line_segment_intersection(old_pos, new_pos, e[0], e[1]) for e in edges]))
     
@@ -221,11 +225,29 @@ class Plot():
             angle *= -1
 
         center = self._current_pos + self._current_heading.rotate(90) * radius
-        cur_offset = self._current_pos - center
+        offset = self._current_pos - center
 
         len_segments = self.inches_to_units(len_segments_inches)
         num_divisions = max(3, round(2*math.pi*abs(radius)*(abs(angle)/360)/len_segments))
-        for t in range(1, num_divisions):
-            cur_offset = cur_offset.rotate(angle/num_divisions)
+        for t in range(1, num_divisions+1):
+            cur_offset = offset.rotate(t*angle/num_divisions)
             self.lineto(*(center+cur_offset))
         self.right(angle)
+    
+    def arcto(self, x, y, angle, len_segments_inches=0.02):
+        sign = 1 if angle > 0 else -1
+        angle = abs(angle) % 360
+        if angle == 0:
+            self.lineto(x, y)
+            return
+        
+        d = _dist_between(self._current_pos, vec2(x, y))
+        r = abs(d / (2 * math.cos(math.pi/2 - math.radians(angle/2))))
+        offset = -(vec2(x, y) - self._current_pos).normalize().rotate(sign*(90-angle/2))*r
+        center = self._current_pos - offset
+
+        len_segments = self.inches_to_units(len_segments_inches)
+        num_divisions = max(3, round((2*math.pi*r * (angle/360)) / len_segments))
+        for t in range(1, num_divisions+1):
+            cur_offset = offset.rotate(sign*t*angle/num_divisions)
+            self.lineto(*(center+cur_offset))

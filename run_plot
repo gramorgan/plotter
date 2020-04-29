@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-import sys
 import os
 import importlib
 import atexit
 import subprocess
 import traceback
+from datetime import datetime
+from argparse import ArgumentParser
 
 from plot import Plot
 import turtle as t
@@ -30,9 +31,10 @@ class PlotWatcher():
                 self.module = importlib.import_module(module_name)
             self.drawing = True
             self.module.main(self.p)
-            self.drawing = False
         except:
             traceback.print_exc()
+        finally:
+            self.drawing = False
         t.update()
         return True
     
@@ -47,25 +49,29 @@ class PlotWatcher():
         t.onscreenclick(lambda _x, _y: self.redraw_plot())
         self._tick()
 
-def main():
-    filename = sys.argv[1]
-    plotter_enabled = len(sys.argv) > 2 and sys.argv[2] == '--plot'
-
-    p = Plot(plotter_enabled)
-    if plotter_enabled:
-        module_name = os.path.splitext(filename)[0]
+def main(args):
+    p = Plot(args.plotter_enabled)
+    if args.plotter_enabled:
+        module_name = os.path.splitext(args.filename)[0]
         module = importlib.import_module(module_name)
         # prevent screen from sleeping
         proc = subprocess.Popen(['caffeinate', '-d'])
         atexit.register(proc.terminate)
 
+        start_time = datetime.now()
         module.main(p)
+        print('total time elapsed:', datetime.now()-start_time)
 
         proc.terminate()
         p.done()
     else:
-        PlotWatcher(p, filename).start()
+        PlotWatcher(p, args.filename).start()
         p.done()
 
 if __name__ == "__main__":
-    main()
+    p = ArgumentParser()
+    p.add_argument('filename')
+    p.add_argument('-p', '--plot', dest='plotter_enabled', action='store_true')
+
+    args = p.parse_args()
+    main(args)

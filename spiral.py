@@ -11,3 +11,7 @@ def main(p: Plot):
         x = 50 + spacing*math.cos(t*0.5)
         y = 50 + spacing*math.sin(t*0.5)
         p.circle((x, y), t*0.5)
+
+if __name__ == '__main__':
+    p = Plot()
+    main(p)
