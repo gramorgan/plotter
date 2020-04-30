@@ -32,15 +32,22 @@ CHAR_PATHS = {
     'X': [(g, 0,0), (l, 50,100), (g, 0,100), (l, 50,0)],
     'Y': [(g, 0,0), (l, 25,55), (l, 50,0), (g, 25,55), (l, 25,100)],
     'Z': [(g, 0,0), (l, 50,0), (l, 0,100), (l, 50,100)],
+    '0': [(g, 0,20), (a, 20,0,90), (l, 30,0), (a, 50,20,90), (l, 50,80), (a, 30,100,90), (l, 20,100), (a, 0,80,90), (l, 0,20), (g, 44,6), (l, 6,94)],
+    '1': [(g, 0,100), (l, 50,100), (g, 25,100), (l, 25,0), (a, 0,20,60)],
+    '2': [(g, 0,25), (a, 50,25,180), (a, 20,65,40), (a, 0,100,-40), (l, 50,100)],
+    '3': [(g, 0,20), (a, 48,20,150), (a, 20,55,110), (a, 50,75,80), (a, 0,75,180)],
+    '4': [(g, 40,100), (l, 40,0), (l, 0,55), (l, 50,55)],
+    '5': [(g, 50,0), (l, 0,0), (l, 0,55), (a, 25,100,225), (l, 0,100)],
+    '6': [(g, 50,0), (a, 0,55,-90), (l, 0,75), (a, 50,75,-180), (l, 50,70), (a, 0,70,-180)],
+    '7': [(g, 0,0), (l, 50,0), (l, 10,100), (g, 13,55), (l, 43,55)],
+    '8': [(g, 25,0), (a, 25,55,170), (a, 25,100,-185), (a, 25,55,-185), (a, 25,0,170)],
+    '9': [(g, 0,100), (a, 50,55,-90), (l, 50,25), (a, 0,25,-180), (l, 0,30), (a, 50,30,-180)],
 }
 
-def _draw_sequence(p: Plot, seq, origin, scale):
+def _draw_sequence(p: Plot, seq, origin, scale, angle):
     for f, x, y, *rest in seq:
-        x = origin.x + scale * x/100
-        y = origin.y + scale * y/100
+        x, y = origin + scale*vec2(x, y).rotate(angle)/100
         f.__get__(p, Plot)(x, y, *rest)
-
-KERN = 0.1
 
 def _draw_bounding_box(p, origin, scale):
     p.goto(*origin)
@@ -49,19 +56,23 @@ def _draw_bounding_box(p, origin, scale):
     p.lineto(origin.x, origin.y + scale)
     p.lineto(*origin)
 
-def draw_string(p: Plot, s, origin, scale):
+def draw_string(p: Plot, s, origin, scale, angle=0, kern_inches=0.1):
+    kern = p.inches_to_units(kern_inches)
     for i, c in enumerate(s.upper()):
         if c not in CHAR_PATHS:
             continue
-        char_origin = origin+i*scale*vec2(0.5+KERN, 0)
+        char_origin = origin + i*(scale/2+kern)*vec2(1, 0).rotate(angle)
 
         # _draw_bounding_box(p, char_origin, scale)
-        _draw_sequence(p, CHAR_PATHS[c], char_origin, scale)
+        _draw_sequence(p, CHAR_PATHS[c], char_origin, scale, angle)
 
 def main(p: Plot):
     p.clipping = False
     p.plot_size = 8
     p.setup()
     size = 5
-    draw_string(p, 'the quick brown fox jumps', vec2(0, 0), size)
-    draw_string(p, 'over the lazy dog', vec2(0, size+1), size)
+    draw_string(p, '720 vert', vec2(100, 0), size, 90)
+    draw_string(p, 'tony hawk', vec2(100-(size+1), 0), size, 90)
+    # draw_string(p, 'the quick brown fox jumps', vec2(0, 0), size)
+    # draw_string(p, 'over the lazy dog', vec2(0, size+1), size)
+    # draw_string(p, '0123456789', vec2(0, 2*(size+1)), size)

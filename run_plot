@@ -33,8 +33,7 @@ class PlotWatcher():
             self.module.main(self.p)
         except:
             traceback.print_exc()
-        finally:
-            self.drawing = False
+        self.drawing = False
         t.update()
         return True
     
