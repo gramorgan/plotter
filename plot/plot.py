@@ -53,6 +53,7 @@ class Plot():
 
         t.hideturtle()
         t.tracer(1000, 0)
+        t.setundobuffer(None)
     
     def set_canvas_size(self, xsize, ysize):
         self.canvas_size = vec2(xsize, ysize)
@@ -251,3 +252,14 @@ class Plot():
         for t in range(1, num_divisions+1):
             cur_offset = offset.rotate(sign*t*angle/num_divisions)
             self.lineto(*(center+cur_offset))
+
+    def dot(self, x, y):
+        self._current_pos = vec2(x, y)
+        self._current_penup = True
+        if not self.in_bounds(x, y):
+            return
+        self._goto(x, y)
+        t.dot(2)
+        if self.plotter_enabled:
+            self.ad.pendown()
+            self.ad.penup()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os
+import os.path
 import importlib
 import atexit
 import subprocess
@@ -12,9 +12,10 @@ import turtle as t
 
 class PlotWatcher():
 
-    def __init__(self, p: Plot, filename):
-        self.filename = filename
+    def __init__(self, p: Plot, filename, plot_args):
         self.p = p
+        self.filename = filename
+        self.plot_args = plot_args
         self.module = None
         self.mtime = None
         self.drawing = False
@@ -30,7 +31,7 @@ class PlotWatcher():
                 module_name = os.path.splitext(self.filename)[0].replace('/', '.')
                 self.module = importlib.import_module(module_name)
             self.drawing = True
-            self.module.main(self.p)
+            self.module.main(self.p, *self.plot_args)
         except:
             traceback.print_exc()
         self.drawing = False
@@ -38,7 +39,7 @@ class PlotWatcher():
         return True
     
     def _tick(self):
-        new_mtime = os.stat(os.path.abspath(self.filename)).st_mtime
+        new_mtime = os.path.getmtime(os.path.abspath(self.filename))
         if self.mtime is None or new_mtime > self.mtime:
             if self.redraw_plot():
                 self.mtime = new_mtime
@@ -48,23 +49,23 @@ class PlotWatcher():
         t.onscreenclick(lambda _x, _y: self.redraw_plot())
         self._tick()
 
-def main(args):
+def main(args, plot_args):
     p = Plot(args.plotter_enabled)
     if args.plotter_enabled:
-        module_name = os.path.splitext(args.filename)[0]
+        module_name = os.path.splitext(args.filename)[0].replace('/', '.')
         module = importlib.import_module(module_name)
         # prevent screen from sleeping
         proc = subprocess.Popen(['caffeinate', '-d'])
         atexit.register(proc.terminate)
 
         start_time = datetime.now()
-        module.main(p)
+        module.main(p, *plot_args)
         print('total time elapsed:', datetime.now()-start_time)
 
         proc.terminate()
         p.done()
     else:
-        PlotWatcher(p, args.filename).start()
+        PlotWatcher(p, args.filename, plot_args).start()
         p.done()
 
 if __name__ == "__main__":
@@ -72,5 +73,5 @@ if __name__ == "__main__":
     p.add_argument('filename')
     p.add_argument('-p', '--plot', dest='plotter_enabled', action='store_true')
 
-    args = p.parse_args()
-    main(args)
+    args, plot_args = p.parse_known_args()
+    main(args, plot_args)

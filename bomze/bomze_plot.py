@@ -1,127 +1,104 @@
-import turtle as t
+from plot import Plot
+from plot.utils import vec2, vec3, SQRT_3
+from plot.text import draw_string
 import math
-import numpy as np
-from itertools import combinations
 
-from mats import MATS
-
-SQRT_3 = 1.73205080757
-
-def calc_mag(a):
-    return math.sqrt(sum(e*e for e in a))
-
-def normalize(a):
-    mag = calc_mag(a)
-    if mag == 0:
-        return a
-    return tuple(e/mag for e in a)
+from .mats import MATS
 
 def gen_simplex_coords(num_divisions):
     for x in range(num_divisions+1):
         for y in range(num_divisions+1-x):
-            yield (x/num_divisions, y/num_divisions, (num_divisions-x-y)/num_divisions)
+            yield vec3(
+                x/num_divisions,
+                y/num_divisions,
+                (num_divisions-x-y) / num_divisions
+            )
 
-def draw_tri(origin=(0, 0), size=100):
-    t.penup()
-    t.goto(origin[0]+size/2, origin[1]+(size/2)*SQRT_3)
-    t.pendown()
-    t.goto(origin[0], origin[1])
-    t.goto(origin[0]+size, origin[1])
-    t.goto(origin[0]+size/2, origin[1]+(size/2)*SQRT_3)
+def draw_tri(p, origin, size):
+    p.goto(*origin)
+    p.lineto(origin.x + size, origin.y)
+    p.lineto(origin.x + size/2, origin.y - SQRT_3*size/2)
+    p.lineto(*origin)
 
-def simplex_to_cart(pos, origin=(0, 0), size=100):
-    points = (
-        origin,
-        (origin[0]+size, origin[1]),
-        (origin[0]+size/2, origin[1]+(size/2)*SQRT_3),
+def simplex_to_cart(pos, origin, size):
+    ret = (
+        pos[0] * origin +
+        pos[1] * vec2(origin.x + size, origin.y) +
+        pos[2] * vec2(origin.x + size/2, origin.y - SQRT_3*size/2)
     )
-    zipped = list(zip(points, pos))
-    return (
-        sum(p*point[0] for point, p in zipped),
-        sum(p*point[1] for point, p in zipped),
-    )
+    return ret
 
-def get_mat_grad(pos, mat):
+def get_grad(pos, mat):
     s_x, s_y, s_z = pos
     W_x = s_x*mat[0,0] + s_y*mat[0,1] + s_z*mat[0,2]
     W_y = s_x*mat[1,0] + s_y*mat[1,1] + s_z*mat[1,2]
     W_z = s_x*mat[2,0] + s_y*mat[2,1] + s_z*mat[2,2]
     W_bar = s_x*W_x + s_y*W_y + s_z*W_z
 
-    return (
-        s_x*(W_x-W_bar),
-        s_y*(W_y-W_bar),
-        s_z*(W_z-W_bar),
+    return vec3(
+        float(s_x*(W_x-W_bar)),
+        float(s_y*(W_y-W_bar)),
+        float(s_z*(W_z-W_bar)),
     )
 
 # line segments
-# def draw_arrow(start, end):
-#     t.penup()
-#     t.goto(start[0], start[1])
-#     t.pendown()
-#     t.goto(end[0], end[1])
+def draw_arrow(p, start, end):
+    if start == end:
+        p.dot(*start)
+        return
+    p.goto(*start)
+    p.lineto(*end)
 
 # actual arrows
-def draw_arrow(start, end):
-    orth = normalize( (
-        -(end[1]-start[1]),
-        end[0]-start[0]
-    ) )
-    # fixed units
-    width = 0.5
+# def draw_arrow(p, start, end):
+#     if start == end:
+#         p.dot(*start)
+#         return
+#     orth = (end-start).rotate(90).normalize()
+#     width = 0.1
+#     p.goto(*start+orth*width)
+#     p.lineto(*end)
+#     p.lineto(*start-orth*width)
 
-    t.penup()
-    t.goto(start[0]+orth[0]*width, start[1]+orth[1]*width)
-    t.pendown()
-    t.goto(end[0], end[1])
-    t.goto(start[0]-orth[0]*width, start[1]-orth[1]*width)
-
-def draw_flow(mat, origin, size):
-    grads = {}
+def draw_mat(p, mat, origin, size):
     num_divisions = 10
-    for pos in gen_simplex_coords(num_divisions):
-        grads[pos] = get_mat_grad(pos, mat)
-    
-    max_grad = 0
-    for pos, grad in grads.items():
-        max_grad = max(max_grad, calc_mag(grad))
+    grads = {pos: get_grad(pos, mat) for pos in gen_simplex_coords(num_divisions)}
+    max_grad = max(grad.mag() for grad in grads.values())
     
     linelength=(1/num_divisions)
     # spacing between flow and border
-    spacing = 10
-    draw_tri(origin=origin, size=size)
+    spacing = 1
+    draw_tri(p, origin=origin, size=size)
 
-    flow_origin = (origin[0]+spacing*SQRT_3, origin[1]-spacing)
+    flow_origin = vec2(origin.x+spacing*SQRT_3, origin.y-spacing)
     flow_size = size-2*spacing*SQRT_3
     
     for pos, grad in grads.items():
-        if max_grad == 0:
-            grad_scaled = (0, 0, 0)
-        else:
-            grad_scaled = tuple(p/max_grad for p in grad)
+        if max_grad != 0:
+            grad /= max_grad
 
-        start = simplex_to_cart(pos, origin=flow_origin, size=flow_size)
-        end = simplex_to_cart(tuple(p+g*linelength for p, g in zip(pos, grad_scaled)), origin=flow_origin, size=flow_size)
-        draw_arrow(start, end)
+        start = simplex_to_cart(pos, flow_origin, flow_size)
+        end = simplex_to_cart(pos + grad*linelength, flow_origin, flow_size)
+        draw_arrow(p, start, end)
 
-if __name__ == '__main__':
-    t.screensize(1700, 1100)
-    t.hideturtle()
-    t.tracer(100, 0)
+def main(p: Plot):
+    p.plot_size = 11.69
+    p.set_canvas_size(210, 297)
+    p.setup()
+    p.draw_bounding_box()
 
-    num_cols = 3
-    size = 250
-    # spacing between plots
-    # fixed units
-    spacing = 20
-    for mat_num, mat in enumerate(MATS):
+    mat_range = (0, 24)
+    # mat_range = (24, 47)
+
+    num_cols = 4
+    spacing = 5
+    size = (210 - spacing*(num_cols+1)) / num_cols
+    vert_size = SQRT_3 * size/2
+    text_size = vert_size/8
+    for mat_num, mat in enumerate(MATS[mat_range[0]: mat_range[1]]):
         row = mat_num // num_cols
         col = mat_num % num_cols
-        origin = (
-            -400 + (size+spacing)*col,
-            400 - ((size/2)*SQRT_3+spacing)*(row+1)
-        )
-        draw_flow(mat, origin, size)
-
-    t.update()
-    t.done()
+        x = spacing + col * (size+spacing)
+        y = vert_size + spacing + row * (vert_size+spacing)
+        draw_mat(p, mat, vec2(x, y), size)
+        draw_string(p, str(mat_range[0] + mat_num), vec2(x, y-vert_size), text_size)
