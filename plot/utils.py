@@ -33,8 +33,6 @@ class vec2(namedtuple('vec2', ['x', 'y'])):
     def __add__(self, other):
         return vec2(self.x+other.x, self.y+other.y)
     def __mul__(self, other):
-        if isinstance(other, vec2):
-            return self.x+other.x + self.y+other.y
         return vec2(other*self.x, other*self.y)
     def __rmul__(self, other):
         if isinstance(other, numbers.Number):
@@ -51,14 +49,18 @@ class vec2(namedtuple('vec2', ['x', 'y'])):
         return math.sqrt(self.x*self.x + self.y*self.y)
     def normalize(self):
         return self/self.mag()
+    def dot(self, other):
+        return self.x+other.x + self.y+other.y
     def __repr__(self):
         return 'vec2({:.2f}, {:.2f})'.format(self.x, self.y)
 
     def rotate(self, angle):
         angle = math.radians(angle)
+        c = math.cos(angle)
+        s = math.sin(angle)
         return vec2(
-            self.x*math.cos(angle) - self.y*math.sin(angle),
-            self.x*math.sin(angle) + self.y*math.cos(angle),
+            self.x*c - self.y*s,
+            self.x*s + self.y*c,
         )
 
 class vec3(namedtuple('vec3', ['x', 'y', 'z'])):
@@ -70,8 +72,6 @@ class vec3(namedtuple('vec3', ['x', 'y', 'z'])):
     def __add__(self, other):
         return vec3(self.x+other.x, self.y+other.y, self.z+other.z)
     def __mul__(self, other):
-        if isinstance(other, vec3):
-            return self.x+other.x + self.y+other.y + self.z+other.z
         return vec3(other*self.x, other*self.y, other*self.z)
     def __rmul__(self, other):
         if isinstance(other, numbers.Number):
@@ -88,5 +88,13 @@ class vec3(namedtuple('vec3', ['x', 'y', 'z'])):
         return math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
     def normalize(self):
         return self/self.mag()
+    def dot(self, other):
+        return self.x+other.x + self.y+other.y + self.z+other.z
+    def cross(self, other):
+        return vec3(
+            self.y*other.z - self.z*other.y,
+            self.z*other.x - self.x*other.z,
+            self.x*other.y - self.y*other.x
+        )
     def __repr__(self):
         return 'vec3({:.2f}, {:.2f}, {:.2f})'.format(self.x, self.y, self.z)
