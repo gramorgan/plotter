@@ -42,23 +42,23 @@ def get_grad(pos, mat):
     )
 
 # line segments
-def draw_arrow(p, start, end):
-    if start == end:
-        p.dot(*start)
-        return
-    p.goto(*start)
-    p.lineto(*end)
-
-# actual arrows
 # def draw_arrow(p, start, end):
 #     if start == end:
 #         p.dot(*start)
 #         return
-#     orth = (end-start).rotate(90).normalize()
-#     width = 0.1
-#     p.goto(*start+orth*width)
+#     p.goto(*start)
 #     p.lineto(*end)
-#     p.lineto(*start-orth*width)
+
+# actual arrows
+def draw_arrow(p, start, end):
+    if start == end:
+        p.dot(*start)
+        return
+    orth = (end-start).rotate(90).normalize()
+    width = 0.1
+    p.goto(*start+orth*width)
+    p.lineto(*end)
+    p.lineto(*start-orth*width)
 
 def draw_mat(p, mat, origin, size):
     num_divisions = 10
@@ -68,7 +68,7 @@ def draw_mat(p, mat, origin, size):
     linelength=(1/num_divisions)
     # spacing between flow and border
     spacing = 1
-    draw_tri(p, origin=origin, size=size)
+    draw_tri(p, origin, size)
 
     flow_origin = vec2(origin.x+spacing*SQRT_3, origin.y-spacing)
     flow_size = size-2*spacing*SQRT_3

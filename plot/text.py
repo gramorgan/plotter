@@ -90,11 +90,6 @@ def main(p: Plot):
     p.setup()
     p.draw_bounding_box()
     size = 1.9
-    # draw_string(p, '720 vert', vec2(100, 0), size, 90)
-    # draw_string(p, 'tony hawk', vec2(100-(size+1), 0), size, 90)
-    # draw_string(p, 'the quick brown fox jumps', vec2(0, 0), size)
-    # draw_string(p, 'over the lazy dog', vec2(0, size+1), size)
-    # draw_string(p, '0123456789><', vec2(0, 2*(size+1)), size)
-
-    navy_seal = "What the fuck did you just fucking say about me you little bitch Ill have you know I graduated top of my class in the Navy Seals and Ive been involved in numerous secret raids on Al-Quaeda and I have over 300 confirmed kills I am trained in gorilla warfare and Im the top sniper in the entire US armed forces You are nothing to me but just another target I will wipe you the fuck out with precision the likes of which has never been seen before on this Earth mark my fucking words You think you can get away with saying that shit to me over the Internet Think again fucker As we speak I am contacting my secret network of spies across the USA and your IP is being traced right now so you better prepare for the storm maggot The storm that wipes out the pathetic little thing you call your life Youre fucking dead kid I can be anywhere anytime and I can kill you in over seven hundred ways and thats just with my bare hands Not only am I extensively trained in unarmed combat but I have access to the entire arsenal of the United States Marine Corps and I will use it to its full extent to wipe your miserable ass off the face of the continent you little shit If only you could have known what unholy retribution your little clever comment was about to bring down upon you maybe you would have held your fucking tongue But you couldnt you didnt and now youre paying the price you goddamn idiot I will shit fury all over you and you will drown in it Youre fucking dead kiddo"
-    draw_string_wrapped(p, navy_seal, 100, vec2(0, 0), size)
+    draw_string(p, 'the quick brown fox jumps', vec2(0, 0), size)
+    draw_string(p, 'over the lazy dog', vec2(0, size+1), size)
+    draw_string(p, '0123456789><', vec2(0, 2*(size+1)), size)
