@@ -58,8 +58,8 @@ class Plot():
     def set_canvas_size(self, xsize, ysize):
         self.canvas_size = vec2(xsize, ysize)
         self._max_canvas_size = max(self.canvas_size)
-        t.setworldcoordinates(0, self._max_canvas_size, self._max_canvas_size, 0)
-    
+        t.setworldcoordinates(0, self._max_canvas_size * 1.01, self._max_canvas_size * 1.01, 0)
+
     def setup(self):
         t.clear()
         self._reset_plot_state()
@@ -208,6 +208,8 @@ class Plot():
     def pen_change(self):
         if self.plotter_enabled:
             self.ad.penup()
+            self.ad.moveto(0, 0)
+            self._real_pos = vec2(0)
         t.update()
         input()
     

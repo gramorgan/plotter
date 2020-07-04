@@ -49,7 +49,7 @@ CHAR_PATHS = {
 def _draw_sequence(p: Plot, seq, origin, scale, angle):
     for f, x, y, *rest in seq:
         x, y = origin + scale*vec2(x, y).rotate(angle)/100
-        f.__get__(p, Plot)(x, y, *rest)
+        f(p, x, y, *rest)
 
 def _draw_bounding_box(p, origin, scale):
     p.goto(*origin)
